@@ -1,7 +1,7 @@
 // build.mjs
 // KJV Static Verse Site Generator — Living Word Bibles
-// Creates one HTML page per verse and a sitemap for Google.
-// Output ends up in ./dist, ready for GitHub Pages.
+// Creates one HTML page per verse + sitemap.xml + robots.txt
+// Output: ./dist/kjv/<book-slug>/<chapter>/<verse>/index.html
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -33,6 +33,7 @@ async function fetchJSON(url){
 
 function normalizeBook(name, data){
   const out = { name, chapters:{} };
+
   function addChapter(chNum, versesObj){
     const vmap = {};
     if(Array.isArray(versesObj)){
@@ -44,6 +45,8 @@ function normalizeBook(name, data){
     }
     out.chapters[Number(chNum)] = { verseCount:Object.keys(vmap).length, verses:vmap };
   }
+
+  // Supported shapes
   if(data && Array.isArray(data.chapters)){
     for(const ch of data.chapters){
       const chNum = Number(ch.chapter);
@@ -78,28 +81,23 @@ function normalizeBook(name, data){
   throw new Error("Unrecognized book JSON structure.");
 }
 
-function pageHTML({book, chapter, verse, text, url, prevHref, nextHref}){
+function pageHTML({book, chapter, verse, text, url, prevHref, nextHref, books}){
   const title = `${book} ${chapter}:${verse} (KJV) — The Holy Bible`;
   const desc  = `King James Version — ${book} ${chapter}:${verse}: ${text}`.slice(0, 300);
   const canonical = url;
-  const ogImage = `${SITE_ORIGIN}/og-default.jpg`; // optional: add one later
+  const ogImage = `${SITE_ORIGIN}/og-default.jpg`; // optional file
 
-  // JSON-LD
   const ld = {
     "@context": "https://schema.org",
     "@type": "CreativeWork",
     "name": `${book} ${chapter}:${verse} (KJV)`,
     "text": text,
-    "isPartOf": {
-      "@type": "Book",
-      "name": "The Holy Bible: King James Version",
-      "bookEdition": "KJV"
-    },
+    "isPartOf": { "@type": "Book", "name": "The Holy Bible: King James Version", "bookEdition": "KJV" },
     "publisher": { "@type": "Organization", "name": BRAND }
   };
 
-  // Helper to safely inject a JS object
-  const pageJS = JSON.stringify({ book, chapter, verse, text, url });
+  const pageJS  = JSON.stringify({ book, chapter, verse, text, url });
+  const booksJS = JSON.stringify(books || []);
 
   return `<!doctype html>
 <html lang="en">
@@ -132,17 +130,22 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
   h1{font-size:28px;margin:8px 0 12px}
   .ref{color:var(--muted);font-size:18px;margin-top:-2px}
   .verse{font-size:28px;line-height:1.5;margin:16px 0}
+
   .nav{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
   a.btn{border:1px solid var(--bd);border-radius:10px;padding:8px 12px;text-decoration:none;color:var(--ink);background:#f8f8f8}
+
+  /* Search bar (replaces "Start") */
+  .searchbar{display:flex;gap:8px;flex-wrap:nowrap;align-items:center}
+  .searchbar input{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;min-width:220px;font-family:inherit}
+  .searchbar button{border:1px solid var(--bd);border-radius:10px;padding:8px 12px;background:#f8f8f8;cursor:pointer;font-family:inherit}
+
   .sharebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 6px}
   .sbtn{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:#fafafa;cursor:pointer;font-size:15px}
   .sbtn svg{width:16px;height:16px}
   .sbtn:hover{background:#f2f2f2}
-  .small{color:var(--muted);font-size:14px;margin-top:14px}
 
-  /* tiny toast for "copied" */
-  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;color:#fff;
-         padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s ease}
+  .small{color:var(--muted);font-size:14px;margin-top:14px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s ease}
   .toast.show{opacity:1}
 </style>
 </head>
@@ -159,7 +162,13 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
     <div class="nav">
       <a class="btn" href="${html(prevHref)}">⟵ Prev</a>
       <a class="btn" href="${html(nextHref)}">Next ⟶</a>
-      <a class="btn" href="${SITE_ORIGIN}/kjv/genesis/1/1/">Start</a>
+
+      <!-- Search bar -->
+      <div class="searchbar" role="search">
+        <input id="verse-search" type="text" placeholder="e.g., John 3:16" aria-label="Go to reference">
+        <button id="go-search" type="button">Go</button>
+      </div>
+
       <a class="btn" href="https://www.the-holy-bible.online/">The Holy Bible</a>
     </div>
 
@@ -191,7 +200,7 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
       </button>
     </div>
 
-    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | <a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a> </div>
+    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | [<a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a>] </div>
   </main>
 
   <div class="toast" id="toast">Link copied</div>
@@ -199,30 +208,45 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
   <script type="application/ld+json">${JSON.stringify(ld)}</script>
 
   <script>
-    // Page data for sharing (safe JSON from server side)
-    const PAGE = ${pageJS};
+    // Page data
+    const PAGE  = ${pageJS};
+    const BOOKS = ${booksJS};
 
     function showToast(msg){
-      const t = document.getElementById('toast');
-      t.textContent = msg || 'Done';
-      t.classList.add('show');
-      setTimeout(()=> t.classList.remove('show'), 1200);
+      const t = document.getElementById('toast'); t.textContent = msg || 'Done';
+      t.classList.add('show'); setTimeout(()=> t.classList.remove('show'), 1200);
     }
-
     function openShare(u){ window.open(u, '_blank', 'noopener,noreferrer'); }
-
     async function copyLink(){
-      try{
-        await navigator.clipboard.writeText(PAGE.url);
-        showToast('Link copied');
-      }catch(_){
-        const ta=document.createElement('textarea');
-        ta.value=PAGE.url; ta.style.position='fixed'; ta.style.left='-9999px';
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-        document.body.removeChild(ta); showToast('Link copied');
+      try{ await navigator.clipboard.writeText(PAGE.url); showToast('Link copied'); }
+      catch(_){
+        const ta=document.createElement('textarea'); ta.value=PAGE.url; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast('Link copied');
       }
     }
 
+    // --- Search (same logic as widget) ---
+    function slugify(s){ return String(s).trim().toLowerCase().replace(/[^a-z0-9\\s]/g,"").replace(/\\s+/g,"-"); }
+    function parseRef(input){
+      const m = String(input||"").trim().match(/^(\\d?\\s*[A-Za-z][A-Za-z\\s]+?)\\s+(\\d+)(?::(\\d+))?$/);
+      if(!m) return null;
+      const name = m[1].replace(/\\s+/g," ").trim();
+      const chapter = parseInt(m[2],10);
+      const verse = m[3] ? parseInt(m[3],10) : 1;
+      const target = slugify(name);
+      const found = (BOOKS||[]).find(n => slugify(n) === target);
+      return found ? { bookSlug: slugify(found), chapter, verse } : null;
+    }
+    function goSearch(){
+      const el = document.getElementById('verse-search');
+      const r = parseRef(el.value);
+      if(!r){ alert('Could not parse reference. Try "John 3:16".'); el.focus(); return; }
+      location.href = \`/kjv/\${r.bookSlug}/\${r.chapter}/\${r.verse}/\`;
+    }
+    document.getElementById('go-search').addEventListener('click', goSearch);
+    document.getElementById('verse-search').addEventListener('keydown', e=>{ if(e.key==='Enter') goSearch(); });
+
+    // Share links
     function buildShareLinks(){
       const refLabel = \`\${PAGE.book} \${PAGE.chapter}:\${PAGE.verse}\`;
       const enc = encodeURIComponent;
@@ -237,33 +261,17 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
         email:    \`mailto:?subject=\${title}&body=\${textEnc}%0A%0A\${url}\`
       };
     }
-
     function isMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||''); }
-
     async function shareInstagram(){
       const profileWeb = 'https://www.instagram.com/living.word.bibles/';
-      if(!isMobile()){
-        // Desktop → just open your page
-        openShare(profileWeb);
-        return;
-      }
-      // Mobile → try native share sheet with page URL
+      if(!isMobile()){ openShare(profileWeb); return; }
       const refLabel = \`\${PAGE.book} \${PAGE.chapter}:\${PAGE.verse} (KJV)\`;
-      const shareData = {
-        title: 'The Holy Bible (KJV)',
-        text: \`\${refLabel}\\n\${PAGE.text}\`,
-        url: PAGE.url
-      };
-      if(navigator.share){
-        try { await navigator.share(shareData); return; } catch(_) {}
-      }
-      // Fallback: open your IG page
+      const shareData = { title: 'The Holy Bible (KJV)', text: \`\${refLabel}\\n\${PAGE.text}\`, url: PAGE.url };
+      if(navigator.share){ try { await navigator.share(shareData); return; } catch(_){} }
       openShare(profileWeb);
     }
-
     document.addEventListener('click', (e)=>{
-      const btn = e.target.closest('[data-share]');
-      if(!btn) return;
+      const btn = e.target.closest('[data-share]'); if(!btn) return;
       const which = btn.getAttribute('data-share');
       const links = buildShareLinks();
       if(which === 'copy') return copyLink();
@@ -275,21 +283,23 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
 </html>`;
 }
 
-
+// ---------- Build ----------
 async function main(){
   await fs.rm(OUT, {recursive:true, force:true});
 
-  const books = await fetchJSON(`${CDN}/Books.json`);
-  const bookRows = books.map(n => ({ name:n, slug:slugify(n), url:`${CDN}/${fileFromName(n)}` }));
+  // Books list (names)
+  const names = await fetchJSON(`${CDN}/Books.json`);
+  const bookRows = names.map(n => ({ name:n, slug:slugify(n), url:`${CDN}/${fileFromName(n)}` }));
+  const BOOK_NAMES = bookRows.map(r => r.name);
 
-  // Load all books
+  // Load and normalize all books
   const lib = new Map();
   for(const row of bookRows){
     const raw = await fetchJSON(row.url);
     lib.set(row.slug, normalizeBook(row.name, raw));
   }
 
-  // Build list of every verse URL in order
+  // Build ordered list of every verse URL
   const ALL = [];
   for(const [slug, book] of lib.entries()){
     const chNums = Object.keys(book.chapters).map(Number).sort((a,b)=>a-b);
@@ -306,11 +316,13 @@ async function main(){
     const row = ALL[i];
     const book = lib.get(row.slug);
     const text = book.chapters[row.c].verses[String(row.v)];
-    const prevHref = (i>0 ? ALL[i-1].url : row.url);
-    const nextHref = (i<ALL.length-1 ? ALL[i+1].url : row.url);
+    const prevHref = (i>0 ? ALL[i-1].url : ALL[i].url);
+    const nextHref = (i<ALL.length-1 ? ALL[i+1].url : ALL[i].url);
     const p = path.join(OUT, "kjv", row.slug, String(row.c), String(row.v), "index.html");
     const htmlStr = pageHTML({
-      book: book.name, chapter: row.c, verse: row.v, text, url: row.url, prevHref, nextHref
+      book: book.name, chapter: row.c, verse: row.v, text, url: row.url,
+      prevHref, nextHref,
+      books: BOOK_NAMES
     });
     await write(p, htmlStr);
   }
@@ -319,7 +331,7 @@ async function main(){
   await write(path.join(OUT, "index.html"),
 `<!doctype html><meta http-equiv="refresh" content="0; url=/kjv/genesis/1/1/"><link rel="canonical" href="/kjv/genesis/1/1/">`);
 
-  // robots + sitemap
+  // robots.txt + sitemap.xml
   await write(path.join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`);
 
   const sitemap = [
