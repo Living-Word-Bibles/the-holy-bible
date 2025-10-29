@@ -160,7 +160,7 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
       <a class="btn" href="${html(prevHref)}">⟵ Prev</a>
       <a class="btn" href="${html(nextHref)}">Next ⟶</a>
       <a class="btn" href="${SITE_ORIGIN}/kjv/genesis/1/1/">Start</a>
-      <a class="btn" href="https://www.livingwordbibles.com/">LivingWordBibles.com</a>
+      <a class="btn" href="https://www.the-holy-bible.online/">The Holy Bible</a>
     </div>
 
     <!-- Social share bar -->
