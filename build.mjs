@@ -200,7 +200,7 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
       </button>
     </div>
 
-    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | [<a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a>] </div>
+    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | <a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a> </div>
   </main>
 
   <div class="toast" id="toast">Link copied</div>
