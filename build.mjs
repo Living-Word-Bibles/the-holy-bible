@@ -84,6 +84,7 @@ function pageHTML({book, chapter, verse, text, url, prevHref, nextHref}){
   const canonical = url;
   const ogImage = `${SITE_ORIGIN}/og-default.jpg`; // optional: add one later
 
+  // JSON-LD
   const ld = {
     "@context": "https://schema.org",
     "@type": "CreativeWork",
@@ -96,6 +97,9 @@ function pageHTML({book, chapter, verse, text, url, prevHref, nextHref}){
     },
     "publisher": { "@type": "Organization", "name": BRAND }
   };
+
+  // Helper to safely inject a JS object
+  const pageJS = JSON.stringify({ book, chapter, verse, text, url });
 
   return `<!doctype html>
 <html lang="en">
@@ -114,21 +118,32 @@ ${ogImage ? `<meta property="og:image" content="${html(ogImage)}">` : ""}
 <meta name="twitter:title" content="${html(title)}">
 <meta name="twitter:description" content="${html(desc)}">
 ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-  :root { --ink:#111; --muted:#666; }
-  body{font-family:"EB Garamond", Garamond, "Times New Roman", serif; margin:0; color:var(--ink); background:#fafafa;}
+  :root{ --ink:#111; --muted:#666; --bd:#ddd; --bg:#fafafa; }
+  body{font-family:"EB Garamond", Garamond, "Times New Roman", serif; margin:0; color:var(--ink); background:var(--bg);}
   .wrap{max-width:780px;margin:40px auto;padding:24px;background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.06);}
   .brand{display:flex;justify-content:center;margin:-6px 0 10px}
   .brand img{width:150px;height:auto;display:block}
   h1{font-size:28px;margin:8px 0 12px}
   .ref{color:var(--muted);font-size:18px;margin-top:-2px}
   .verse{font-size:28px;line-height:1.5;margin:16px 0}
-  .nav{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-  a.btn{border:1px solid #ddd;border-radius:10px;padding:8px 12px;text-decoration:none;color:var(--ink);background:#f8f8f8}
+  .nav{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  a.btn{border:1px solid var(--bd);border-radius:10px;padding:8px 12px;text-decoration:none;color:var(--ink);background:#f8f8f8}
+  .sharebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 6px}
+  .sbtn{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:#fafafa;cursor:pointer;font-size:15px}
+  .sbtn svg{width:16px;height:16px}
+  .sbtn:hover{background:#f2f2f2}
   .small{color:var(--muted);font-size:14px;margin-top:14px}
+
+  /* tiny toast for "copied" */
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;color:#fff;
+         padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s ease}
+  .toast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -136,21 +151,130 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
     <div class="brand">
       <img src="${html(LOGO_URL)}" alt="${html(BRAND)} logo" loading="lazy" decoding="async">
     </div>
+
     <h1>The Holy Bible: King James Version</h1>
     <div class="ref">${html(book)} ${chapter}:${verse} (KJV)</div>
     <div class="verse">${html(text)}</div>
+
     <div class="nav">
       <a class="btn" href="${html(prevHref)}">⟵ Prev</a>
       <a class="btn" href="${html(nextHref)}">Next ⟶</a>
       <a class="btn" href="${SITE_ORIGIN}/kjv/genesis/1/1/">Start</a>
       <a class="btn" href="https://www.livingwordbibles.com/">LivingWordBibles.com</a>
     </div>
-    <div class="small">Copyright © ${new Date().getFullYear()} ${html(BRAND)} | www.livingwordbibles.com</div>
+
+    <!-- Social share bar -->
+    <div class="sharebar" aria-label="Share this verse">
+      <button class="sbtn" data-share="facebook" title="Share on Facebook">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V7a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H7v4h3v9h3z"/></svg>
+        Facebook
+      </button>
+      <button class="sbtn" data-share="instagram" title="Instagram">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6.5-1.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zM12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+        Instagram
+      </button>
+      <button class="sbtn" data-share="x" title="Share on X/Twitter">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 2H22l-9.7 11.1L21.4 22h-7l-5.5-6.7L2.6 22H2l8.6-9.8L2 2h7l5 6.1L18.3 2z"/></svg>
+        X
+      </button>
+      <button class="sbtn" data-share="linkedin" title="Share on LinkedIn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1 4.98 2.12 4.98 3.5zM0 8.98h5V24H0zM8.48 8.98H13v2.05h.07c.63-1.2 2.16-2.47 4.45-2.47 4.76 0 5.64 3.14 5.64 7.23V24h-5v-6.56c0-1.56-.03-3.56-2.17-3.56-2.17 0-2.5 1.7-2.5 3.45V24h-5V8.98z"/></svg>
+        LinkedIn
+      </button>
+      <button class="sbtn" data-share="email" title="Share by Email">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 4h20v16H2V4zm10 7L3.5 6.5h17L12 11zm0 2l8.5-6.5V20h-17V6.5L12 13z"/></svg>
+        Email
+      </button>
+      <button class="sbtn" data-share="copy" title="Copy link">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        Copy
+      </button>
+    </div>
+
+    <div class="small">KJV text is public domain. © ${new Date().getFullYear()} ${html(BRAND)}.</div>
   </main>
+
+  <div class="toast" id="toast">Link copied</div>
+
   <script type="application/ld+json">${JSON.stringify(ld)}</script>
+
+  <script>
+    // Page data for sharing (safe JSON from server side)
+    const PAGE = ${pageJS};
+
+    function showToast(msg){
+      const t = document.getElementById('toast');
+      t.textContent = msg || 'Done';
+      t.classList.add('show');
+      setTimeout(()=> t.classList.remove('show'), 1200);
+    }
+
+    function openShare(u){ window.open(u, '_blank', 'noopener,noreferrer'); }
+
+    async function copyLink(){
+      try{
+        await navigator.clipboard.writeText(PAGE.url);
+        showToast('Link copied');
+      }catch(_){
+        const ta=document.createElement('textarea');
+        ta.value=PAGE.url; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta); showToast('Link copied');
+      }
+    }
+
+    function buildShareLinks(){
+      const refLabel = \`\${PAGE.book} \${PAGE.chapter}:\${PAGE.verse}\`;
+      const enc = encodeURIComponent;
+      const text = \`The Holy Bible (KJV) — \${refLabel}: \${PAGE.text}\`.slice(0, 240);
+      const url = enc(PAGE.url);
+      const title = enc(\`\${refLabel} (KJV)\`);
+      const textEnc = enc(text);
+      return {
+        facebook: \`https://www.facebook.com/sharer/sharer.php?u=\${url}\`,
+        x:        \`https://twitter.com/intent/tweet?url=\${url}&text=\${textEnc}\`,
+        linkedin: \`https://www.linkedin.com/sharing/share-offsite/?url=\${url}\`,
+        email:    \`mailto:?subject=\${title}&body=\${textEnc}%0A%0A\${url}\`
+      };
+    }
+
+    function isMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||''); }
+
+    async function shareInstagram(){
+      const profileWeb = 'https://www.instagram.com/living.word.bibles/';
+      if(!isMobile()){
+        // Desktop → just open your page
+        openShare(profileWeb);
+        return;
+      }
+      // Mobile → try native share sheet with page URL
+      const refLabel = \`\${PAGE.book} \${PAGE.chapter}:\${PAGE.verse} (KJV)\`;
+      const shareData = {
+        title: 'The Holy Bible (KJV)',
+        text: \`\${refLabel}\\n\${PAGE.text}\`,
+        url: PAGE.url
+      };
+      if(navigator.share){
+        try { await navigator.share(shareData); return; } catch(_) {}
+      }
+      // Fallback: open your IG page
+      openShare(profileWeb);
+    }
+
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('[data-share]');
+      if(!btn) return;
+      const which = btn.getAttribute('data-share');
+      const links = buildShareLinks();
+      if(which === 'copy') return copyLink();
+      if(which === 'instagram') return shareInstagram();
+      if(links[which]) return openShare(links[which]);
+    });
+  </script>
 </body>
 </html>`;
 }
+
 
 async function main(){
   await fs.rm(OUT, {recursive:true, force:true});
