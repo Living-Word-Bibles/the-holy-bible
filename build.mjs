@@ -191,7 +191,7 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
       </button>
     </div>
 
-    <div class="small">Copyright © ${new Date().getFullYear()} ${html(BRAND)}</div>
+    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | www.livingwordbibles.com </div>
   </main>
 
   <div class="toast" id="toast">Link copied</div>
