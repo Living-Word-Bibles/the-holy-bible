@@ -1,0 +1,27 @@
+name: Build & Deploy KJV Verse Site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        run: node build.mjs
+        env:
+          SITE_ORIGIN: https://the-holy-bible.livingwordbibles.com
+          LOGO_URL: https://www.livingwordbibles.com/s/LivingWordBibles01.png
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          cname: the-holy-bible.livingwordbibles.com
