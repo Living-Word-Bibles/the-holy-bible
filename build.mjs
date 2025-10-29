@@ -145,7 +145,7 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
       <a class="btn" href="${SITE_ORIGIN}/kjv/genesis/1/1/">Start</a>
       <a class="btn" href="https://www.livingwordbibles.com/">LivingWordBibles.com</a>
     </div>
-    <div class="small">KJV text is public domain. © ${new Date().getFullYear()} ${html(BRAND)}.</div>
+    <div class="small">Copyright © ${new Date().getFullYear()} ${html(BRAND)}.</div>
   </main>
   <script type="application/ld+json">${JSON.stringify(ld)}</script>
 </body>
