@@ -222,7 +222,7 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
       </button>
     </div>
 
-    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | <a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a> </div>
+    <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | All Rights Reserved | <a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a> </div>
   </main>
 
   <div class="toast" id="toast">Link copied</div>
