@@ -1,13 +1,11 @@
 // build.mjs
-// Online Bible — KJV Static Verse Site Generator (Stable Alpha)
+// Online Bible — KJV Static Verse Site Generator (with PWA install UI)
 // Living Word Bibles
-// Creates one HTML page per verse + sitemap.xml + robots.txt + ads.txt
+// Creates one HTML page per verse + sitemap.xml + robots.txt + copies PWA assets
 // Output: ./dist/kjv/<book-slug>/<chapter>/<verse>/index.html
 
-import fsSync from "node:fs"; // for existsSync checks
-const ICONS_SRC = path.join(__dirname, "pwa", "icons");
-
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,10 +18,14 @@ const LOGO_URL = process.env.LOGO_URL || "https://www.livingwordbibles.com/s/Liv
 const CDN = "https://cdn.jsdelivr.net/gh/aruljohn/Bible-kjv@master"; // source JSON (unchanged)
 const OUT = path.join(__dirname, "dist");
 
-// --- Google AdSense ---
-const ADSENSE_CLIENT   = process.env.ADSENSE_CLIENT || "ca-pub-5303063222439969"; // your Publisher ID
-const ADSENSE_SLOT     = process.env.ADSENSE_SLOT || ""; // optional manual in-article slot id
-const ENABLE_AUTO_ADS  = true; // set false to disable everywhere
+// --- (Optional) Google AdSense ---
+const ADSENSE_CLIENT   = process.env.ADSENSE_CLIENT || ""; // e.g., "ca-pub-5303063222439969"
+const ADSENSE_SLOT     = process.env.ADSENSE_SLOT || "";    // optional manual in-article slot id
+const ENABLE_AUTO_ADS  = !!ADSENSE_CLIENT;
+
+// --- PWA assets on repo ---
+// Put your icons at: pwa/icons/icon-192.png and pwa/icons/icon-512.png
+const ICONS_SRC_DIR = path.join(__dirname, "pwa", "icons");
 
 // ---------- Helpers ----------
 const slugify = s => String(s).trim().toLowerCase().replace(/[^a-z0-9\s]/g,"").replace(/\s+/g,"-");
@@ -94,7 +96,7 @@ function pageHTML({book, chapter, verse, text, url, prevHref, nextHref, books}){
   const title = `${book} ${chapter}:${verse} (KJV) — The Holy Bible`;
   const desc  = `King James Version — ${book} ${chapter}:${verse}: ${text}`.slice(0, 300);
   const canonical = url;
-  const ogImage = `${SITE_ORIGIN}/og-default.jpg`; // optional file
+  const ogImage = `${SITE_ORIGIN}/og-default.jpg`; // optional
 
   const ld = {
     "@context": "https://schema.org",
@@ -111,10 +113,6 @@ function pageHTML({book, chapter, verse, text, url, prevHref, nextHref, books}){
   return `<!doctype html>
 <html lang="en">
 <head>
-<link rel="manifest" href="/manifest.webmanifest">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Online Bible (KJV)">
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${html(title)}</title>
 <link rel="canonical" href="${html(canonical)}">
@@ -136,6 +134,13 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
 
 ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${html(ADSENSE_CLIENT)}" crossorigin="anonymous"></script>` : ""}
 
+<!-- PWA head bits -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Online Bible (KJV)">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192.png">
+<script>if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }</script>
+
 <style>
   :root{ --ink:#111; --muted:#666; --bd:#ddd; --bg:#fafafa; }
   body{font-family:"EB Garamond", Garamond, "Times New Roman", serif; margin:0; color:var(--ink); background:var(--bg);}
@@ -149,7 +154,7 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
   .nav{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
   a.btn{border:1px solid var(--bd);border-radius:10px;padding:8px 12px;text-decoration:none;color:var(--ink);background:#f8f8f8}
 
-  /* Search bar (replaces "Start") */
+  /* Search bar */
   .searchbar{display:flex;gap:8px;flex-wrap:nowrap;align-items:center}
   .searchbar input{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;min-width:220px;font-family:inherit}
   .searchbar button{border:1px solid var(--bd);border-radius:10px;padding:8px 12px;background:#f8f8f8;cursor:pointer;font-family:inherit}
@@ -162,8 +167,18 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
   .small{color:var(--muted);font-size:14px;margin-top:14px}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s ease}
   .toast.show{opacity:1}
-  /* Optional: space for manual in-article ad */
+
+  /* Optional Ad block spacing */
   .adwrap{margin:16px 0}
+
+  /* PWA install UI */
+  .install-cta{position:fixed;right:16px;bottom:16px;z-index:50}
+  .install-cta button{border:1px solid var(--bd);background:#111;color:#fff;border-radius:999px;padding:10px 14px;cursor:pointer}
+  .install-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:60}
+  .install-card{background:#fff;max-width:520px;margin:0 16px;border-radius:16px;padding:18px;border:1px solid #ddd}
+  .install-card h3{margin:0 0 8px 0}
+  .install-card ol{margin:8px 0 0 22px;line-height:1.6}
+  .install-close{float:right;border:1px solid #ddd;border-radius:8px;padding:6px 10px;background:#f8f8f8;cursor:pointer}
 </style>
 </head>
 <body>
@@ -230,6 +245,24 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
     </div>
 
     <div class="small">Copyright © ${new Date().getFullYear()} | ${html(BRAND)} | All Rights Reserved | <a href="https://www.livingwordbibles.com/" target="_blank" rel="noopener">www.livingwordbibles.com</a> </div>
+
+    <!-- PWA Install CTA + iOS instructions -->
+    <div class="install-cta" id="install-cta" hidden>
+      <button id="install-btn">Install</button>
+    </div>
+
+    <div class="install-modal" id="install-modal" aria-hidden="true">
+      <div class="install-card">
+        <button class="install-close" id="install-close" type="button">Close</button>
+        <h3>Install “Online Bible (KJV)” on iPhone</h3>
+        <ol>
+          <li>Tap the <strong>Share</strong> button (square with arrow) in Safari.</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong>.</li>
+        </ol>
+        <p class="small">Help page: <a href="https://www.livingwordbibles.com/ios" target="_blank" rel="noopener">livingwordbibles.com/ios</a></p>
+      </div>
+    </div>
   </main>
 
   <div class="toast" id="toast">Link copied</div>
@@ -254,7 +287,7 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
       }
     }
 
-    // --- Search (same logic as widget) ---
+    // --- Search ---
     function slugify(s){ return String(s).trim().toLowerCase().replace(/[^a-z0-9\\s]/g,"").replace(/\\s+/g,"-"); }
     function parseRef(input){
       const m = String(input||"").trim().match(/^(\\d?\\s*[A-Za-z][A-Za-z\\s]+?)\\s+(\\d+)(?::(\\d+))?$/);
@@ -275,7 +308,7 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
     document.getElementById('go-search').addEventListener('click', goSearch);
     document.getElementById('verse-search').addEventListener('keydown', e=>{ if(e.key==='Enter') goSearch(); });
 
-    // Share links
+    // --- Share links ---
     function buildShareLinks(){
       const refLabel = \`\${PAGE.book} \${PAGE.chapter}:\${PAGE.verse}\`;
       const enc = encodeURIComponent;
@@ -307,6 +340,47 @@ ${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pa
       if(which === 'instagram') return shareInstagram();
       if(links[which]) return openShare(links[which]);
     });
+
+    // --- PWA Install button logic ---
+    (function(){
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+      const cta = document.getElementById('install-cta');
+      const btn = document.getElementById('install-btn');
+      const modal = document.getElementById('install-modal');
+      const closeBtn = document.getElementById('install-close');
+
+      let deferredPrompt = null;
+
+      function showCTA(){ if(!isStandalone && cta) cta.hidden = false; }
+      function showModal(){ if(modal) modal.style.display = 'flex'; }
+      function hideModal(){ if(modal) modal.style.display = 'none'; }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        // Supported on Android/desktop Chromium — not iOS Safari
+        e.preventDefault();
+        deferredPrompt = e;
+        showCTA();
+      });
+
+      btn?.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          try { await deferredPrompt.userChoice; } catch(_) {}
+          deferredPrompt = null;
+          cta.hidden = true;
+        } else if (isiOS) {
+          showModal(); // iOS: show friendly instructions
+        } else {
+          window.open('https://www.livingwordbibles.com/ios', '_blank', 'noopener');
+        }
+      });
+
+      closeBtn?.addEventListener('click', hideModal);
+
+      // On iOS (no beforeinstallprompt), show CTA if not installed.
+      if (isiOS && !isStandalone) showCTA();
+    })();
   </script>
 </body>
 </html>`;
@@ -360,9 +434,8 @@ async function main(){
   await write(path.join(OUT, "index.html"),
 `<!doctype html><meta http-equiv="refresh" content="0; url=/kjv/genesis/1/1/"><link rel="canonical" href="/kjv/genesis/1/1/">`);
 
-  // robots.txt + sitemap.xml
+  // robots.txt + sitemap.xml (sitemap recommended for SEO; not required for PWA)
   await write(path.join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`);
-
   const sitemap = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
@@ -372,7 +445,33 @@ async function main(){
   ].join("");
   await write(path.join(OUT, "sitemap.xml"), sitemap);
 
-  // ads.txt for the subdomain (helps buyers verify inventory)
+  // ---- Copy PWA assets to site root ----
+  try {
+    // Copy manifest / service worker if committed at repo root
+    const manifestSrc = path.join(__dirname, "manifest.webmanifest");
+    const swSrc = path.join(__dirname, "sw.js");
+    if (fsSync.existsSync(manifestSrc)) {
+      await fs.copyFile(manifestSrc, path.join(OUT, "manifest.webmanifest"));
+    }
+    if (fsSync.existsSync(swSrc)) {
+      await fs.copyFile(swSrc, path.join(OUT, "sw.js"));
+    }
+
+    // Copy icons from pwa/icons -> /icons/
+    if (fsSync.existsSync(ICONS_SRC_DIR)) {
+      await ensureDir(path.join(OUT, "icons"));
+      for (const name of ["icon-192.png", "icon-512.png"]) {
+        const src = path.join(ICONS_SRC_DIR, name);
+        if (fsSync.existsSync(src)) {
+          await fs.copyFile(src, path.join(OUT, "icons", name));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("PWA asset copy skipped:", e?.message || e);
+  }
+
+  // (Optional) ads.txt if AdSense publisher set
   if (ADSENSE_CLIENT && ADSENSE_CLIENT.includes('pub-')) {
     const PUB_ID = ADSENSE_CLIENT.replace(/^ca-/, ''); // ca-pub-… → pub-…
     await write(path.join(OUT, "ads.txt"), `google.com, ${PUB_ID}, DIRECT, f08c47fec0942fa0\n`);
