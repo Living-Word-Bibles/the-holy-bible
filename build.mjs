@@ -4,6 +4,9 @@
 // Creates one HTML page per verse + sitemap.xml + robots.txt + ads.txt
 // Output: ./dist/kjv/<book-slug>/<chapter>/<verse>/index.html
 
+import fsSync from "node:fs"; // for existsSync checks
+const ICONS_SRC = path.join(__dirname, "pwa", "icons");
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
