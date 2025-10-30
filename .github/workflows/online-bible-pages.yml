@@ -1,0 +1,51 @@
+name: Build & Deploy Online Bible
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build static site
+        env:
+          SITE_ORIGIN: https://the-holy-bible.livingwordbibles.com
+          LOGO_URL: https://www.livingwordbibles.com/s/LivingWordBibles01.png
+          ADSENSE_CLIENT: ca-pub-5303063222439969
+          # ADSENSE_SLOT: "XXXXXXXXXX"   # optional manual unit
+        run: node build.mjs
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
