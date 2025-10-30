@@ -1,6 +1,7 @@
 // build.mjs
-// KJV Static Verse Site Generator — Living Word Bibles
-// Creates one HTML page per verse + sitemap.xml + robots.txt
+// Online Bible — KJV Static Verse Site Generator (Stable Alpha)
+// Living Word Bibles
+// Creates one HTML page per verse + sitemap.xml + robots.txt + ads.txt
 // Output: ./dist/kjv/<book-slug>/<chapter>/<verse>/index.html
 
 import fs from "node:fs/promises";
@@ -13,8 +14,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_ORIGIN = process.env.SITE_ORIGIN || "https://the-holy-bible.livingwordbibles.com";
 const BRAND = "Living Word Bibles";
 const LOGO_URL = process.env.LOGO_URL || "https://www.livingwordbibles.com/s/LivingWordBibles01.png";
-const CDN = "https://cdn.jsdelivr.net/gh/aruljohn/Bible-kjv@master"; // source JSON
+const CDN = "https://cdn.jsdelivr.net/gh/aruljohn/Bible-kjv@master"; // source JSON (unchanged)
 const OUT = path.join(__dirname, "dist");
+
+// --- Google AdSense ---
+const ADSENSE_CLIENT   = process.env.ADSENSE_CLIENT || "ca-pub-5303063222439969"; // your Publisher ID
+const ADSENSE_SLOT     = process.env.ADSENSE_SLOT || ""; // optional manual in-article slot id
+const ENABLE_AUTO_ADS  = true; // set false to disable everywhere
 
 // ---------- Helpers ----------
 const slugify = s => String(s).trim().toLowerCase().replace(/[^a-z0-9\s]/g,"").replace(/\s+/g,"-");
@@ -121,6 +127,8 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+${ENABLE_AUTO_ADS ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${html(ADSENSE_CLIENT)}" crossorigin="anonymous"></script>` : ""}
+
 <style>
   :root{ --ink:#111; --muted:#666; --bd:#ddd; --bg:#fafafa; }
   body{font-family:"EB Garamond", Garamond, "Times New Roman", serif; margin:0; color:var(--ink); background:var(--bg);}
@@ -147,6 +155,8 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
   .small{color:var(--muted);font-size:14px;margin-top:14px}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s ease}
   .toast.show{opacity:1}
+  /* Optional: space for manual in-article ad */
+  .adwrap{margin:16px 0}
 </style>
 </head>
 <body>
@@ -158,6 +168,18 @@ ${ogImage ? `<meta name="twitter:image" content="${html(ogImage)}">` : ""}
     <h1>The Holy Bible: King James Version</h1>
     <div class="ref">${html(book)} ${chapter}:${verse} (KJV)</div>
     <div class="verse">${html(text)}</div>
+
+    ${ADSENSE_SLOT ? `
+    <!-- Manual in-article ad (optional) -->
+    <div class="adwrap">
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="${html(ADSENSE_CLIENT)}"
+           data-ad-slot="${html(ADSENSE_SLOT)}"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>` : ``}
 
     <div class="nav">
       <a class="btn" href="${html(prevHref)}">⟵ Prev</a>
@@ -342,6 +364,12 @@ async function main(){
     `</urlset>`
   ].join("");
   await write(path.join(OUT, "sitemap.xml"), sitemap);
+
+  // ads.txt for the subdomain (helps buyers verify inventory)
+  if (ADSENSE_CLIENT && ADSENSE_CLIENT.includes('pub-')) {
+    const PUB_ID = ADSENSE_CLIENT.replace(/^ca-/, ''); // ca-pub-… → pub-…
+    await write(path.join(OUT, "ads.txt"), `google.com, ${PUB_ID}, DIRECT, f08c47fec0942fa0\n`);
+  }
 
   console.log(`Built ${ALL.length} verse pages → ${OUT}`);
 }
