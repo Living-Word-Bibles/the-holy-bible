@@ -27,6 +27,7 @@ jobs:
         run: node build.mjs
         env:
           SITE_ORIGIN: https://the-holy-bible.livingwordbibles.com
+          LOGO_URL: https://www.livingwordbibles.com/assets/LivingWordBibles01.webp
       - name: Add CNAME (custom domain)
         run: |
           mkdir -p dist
