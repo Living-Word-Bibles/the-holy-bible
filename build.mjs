@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ---------- Config ----------
 const SITE_ORIGIN = process.env.SITE_ORIGIN || "https://the-holy-bible.livingwordbibles.com";
 const BRAND = "Living Word Bibles";
-const LOGO_URL = process.env.LOGO_URL || "https://www.livingwordbibles.com/s/LivingWordBibles01.png";
+const LOGO_URL = process.env.LOGO_URL || "https://www.livingwordbibles.com/assets/LivingWordBibles01.webp";
 const CDN = "https://cdn.jsdelivr.net/gh/aruljohn/Bible-kjv@master"; // source JSON (unchanged)
 const OUT = path.join(__dirname, "dist");
 
